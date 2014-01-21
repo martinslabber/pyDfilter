@@ -4,19 +4,23 @@ import json
 import operator
 from collections import OrderedDict
 import dpath.util
-ID_KEY = '__id'
 
 
 class Dfilter(object):
 
-    def __init__(self, data, separator='.'):
+    def __init__(self, data=None, separator='.'):
         self.separator_char = str(separator)[0]
         self.data = OrderedDict()
         self._store(data)
 
     def _store(self, data):
-        if data and isinstance(data, dict):
+        if not data:
+            pass
+        elif isinstance(data, dict):
             self.data.update(data)
+        elif isinstance(data, list):
+            self.data.update(dict([(str(n[0]), n[1])
+                                   for n in enumerate(data)]))
 
     def read_json(self, fh):
         close_file = False
@@ -88,7 +92,9 @@ class Dfilter(object):
             return lambda a, b: False
 
     def _evaluate(self, data, path, oper, comp):
+        print 'D', data, path, oper, comp
         for item in dpath.util.search(data, path, yielded=True):
+            print "I", item
             if self._filter_func(oper)(item[1], comp):
                 return True
         return False
@@ -96,11 +102,10 @@ class Dfilter(object):
     def find(self, query):
         """Query is a filter dict like in mongodb."""
         tests = []
-        print "find:", query
         for key in query:
             print key
             value = query[key]
-            if isinstance(value, str):
+            if isinstance(value, str) or isinstance(value, unicode):
                 op = '$eq'
                 val = value
             else:
@@ -143,6 +148,9 @@ class Dfilter(object):
         else:
             return values
 
+    def limit(self, number=100):
+        return self.slice(0, number)
+
     def first(self, number=1):
         return self.slice(0, number)
 
@@ -175,18 +183,17 @@ class Dfilter(object):
         if hasattr(self.data, name):
             return getattr(self.data, name)
 
-###
-# Unwind:
-#
-#
+### Sugestions:
+# Unwind: Dict with lists, become lists with dicts.
+# Group: add a extra layer to dict where similar dicts are in the dict...
+# skip:
+# limit:
 
 
 if __name__ == "__main__":
-    data = {'a': {'b': 1, 'c': {'d': 2}}, 'e': 4}
-    df = Dfilter(data, '#')
-    df.read_json("M.json")
-    print df.select('*#timescale').flatten().uniqe_values()
-    items = df.find({'timescale': 'Timescale A',
-                     "category-list": {'$contains': "1500 CAM"}})
-    print items.count()
+    df = Dfilter(separator='#')
+    df.read_json("tests/world_bank_countries.json")
+    print df.select('*#name').flatten().uniqe_values()
+    print df
+    print df.count()
 
