@@ -15,11 +15,57 @@ class TestFunctional(object):
     def test_filter(self):
         query = {'name': 'foo'}
         items = self.df.find(query)
-        assert 'foo' in items, 'Check that foo is returned'
+        print items
+        assert 'foo' in items.keys(), 'Check that foo is returned'
         query = {'name': {'$in': ['foo', 'bar']}}
         items = self.df.find(query)
-        assert 'foo' in items, 'Check that foo is returned'
-        assert 'bar' in items, 'Check that bar is returned'
+        assert 'foo' in items.keys(), 'Check that foo is returned'
+        assert 'bar' in items.keys(), 'Check that bar is returned'
         query = {'name': {'$contains': 'oo'}}
         items = self.df.find(query)
-        assert 'foo' in items, 'Check that foo is returned'
+        assert 'foo' in items.keys(), 'Check that foo is returned'
+        query = {'age': {'$lt': 50}}
+        items = self.df.find(query)
+        assert 'foo' in items.keys(), 'Check that foo is returned'
+        assert 'qux' in items.keys(), 'Check that qux is returned'
+        assert 'bar' not in items.keys(), 'Check that bar is not returned'
+
+    def test_fetch(self):
+        friend = self.df.fetch('foo.friend.1')
+        assert friend == 'qux', "Check that correct item is given back. Got {}".format(friend)
+        friend = self.df.fetch('foo.friend.10', default='Dontknow')
+        assert friend == 'Dontknow', "Check that correct item is given back. Got {}".format(friend)
+
+    def test_flattend(self):
+        pass
+        items = self.df.flatten()
+        assert items.get('qux.name') == 'qux', "Check that data was flattened"
+
+#TestDataSample1
+tds1 = {"menu": {"header": "SVG Viewer",
+                 "items": [{"id": "Open"},
+                           {"id": "OpenNew", "label": "Open New"},
+                           {"id": "ZoomIn", "label": "Zoom In"},
+                           {"id": "ZoomOut", "label": "Zoom Out"},
+                           {"id": "OriginalView", "label": "Original View"},
+                           {"id": "Quality"},
+                           {"id": "Pause"},
+                           {"id": "Mute"},
+                           None,
+                           {"id": "Find", "label": "Find..."},
+                           {"id": "FindAgain", "label": "Find Again"},
+                           {"id": "Copy"},
+                           {"id": "CopyAgain", "label": "Copy Again"},
+                           {"id": "CopySVG", "label": "Copy SVG"},
+                           {"id": "ViewSVG", "label": "View SVG"},
+                           {"id": "ViewSource", "label": "View Source"},
+                           {"id": "SaveAs", "label": "Save As"},
+                           None,
+                           {"id": "Help"},
+                           {"id": "About", "label": "About Adobe CVG Viewer"}
+                           ],
+                 'hidden': [{"id": "FindAgain", "label": "Find Again"},
+                            {"id": "CopyAgain", "label": "Copy Again"}
+                            ]
+                 }
+        }

@@ -8,21 +8,105 @@ import dpath.util
 
 class Dfilter(object):
 
-    def __init__(self, data=None, separator='.'):
-        self.separator_char = str(separator)[0]
+    """Do arbitrary queries on a data object (aka dictionary)."""
+
+    def __init__(self, data=None, **kwargs):
+        self.chars = {'separator': '.',
+                      'wildcard': '*',
+                      'liststart': '[',
+                      'listend': ']',
+                      'listsplit': ','}
         self.data = OrderedDict()
+        self.config(**kwargs)
         self._store(data)
 
-    def _store(self, data):
-        if not data:
-            pass
-        elif isinstance(data, dict):
-            self.data.update(data)
+    def __iter__(self):
+        return self.data.keys()
+
+    def config(self, **kwargs):
+        """Configure the Dfilter object.
+
+        Configuration Options:
+            separator - Character to use as separator.
+            wildcard  - Character to use as wildcard.
+            liststart - Character to indicate start of a list
+            listend   - Character ti indicate end of list.
+            listsplit - Character to indicate separation of items in list.
+
+        :return: Dictionary with configured values. This can NOT
+                 be used as input for config.
+
+        """
+        char_names = self.chars.keys()
+        chars = [self.chars[c] for c in self.chars]
+        for char in char_names:
+            if char in kwargs:
+                candidate = str(kwargs[char])[0]
+                if candidate not in chars:
+                    self.chars[char] = candidate
+        data_loaded = False
+        if self.data:
+            data_loaded = True
+        return {'chars': self.chars, 'data_loaded': data_loaded}
+
+    def _rflatten(self, data):
+        """Recursively walk through dictionary and return a iterator of
+        key-path and value.
+
+        :return: Iterator of list and value.
+
+        """
+        if isinstance(data, dict):
+            items = data.keys()
         elif isinstance(data, list):
-            self.data.update(dict([(str(n[0]), n[1])
-                                   for n in enumerate(data)]))
+            items = range(len(data))
+        else:
+            items = []
+            yield [], data
+        for item in items:
+            for name, value in self._rflatten(data[item]):
+                yield [item] + name, value
+
+    def _iflatten(self, data):
+        """Place holder for a future supper fast implementation of flatten."""
+        return self._rflatten(data)
+
+    def flatten(self):
+        """Flatten data to a 1-d dictionary."""
+        out_data = OrderedDict()
+        for path, value in self._iflatten(self.data):
+            out_data[self.chars['separator'].join([str(p) for p in path])] = value
+        return Dfilter(out_data)
+
+    def fold(self, as_str=False):
+        """Values becomes the key of a 1-d dictionary and keys are lists.
+
+        Used to lookup values in a dictionary.
+
+        """
+        out_data = OrderedDict()
+        for path, value in self._iflatten(self.data):
+            if as_str:
+                path_str = self.chars['separator'].join([str(p) for p in path])
+                if value in out_data:
+                    if isinstance(out_data[value], str):
+                        out_data[value] = [out_data[value], path_str]
+                    else:
+                        out_data[value].append(path_str)
+                else:
+                    out_data[value] = path_str
+            else:
+                if value not in out_data:
+                    out_data[value] = []
+                out_data[value].append(path)
+        return Dfilter(out_data)
 
     def read_json(self, fh):
+        """Read a file containing JSON formatted data.
+
+        :param fh: File handle or filename.
+
+        """
         close_file = False
         if isinstance(fh, str):
             fh = open(fh, 'r')
@@ -30,17 +114,43 @@ class Dfilter(object):
         if close_file:
             fh.close()
 
+        return self
+
+    def _store(self, data):
+        """Internal method to store the new data."""
+        ## I really want to do json.loads(json.dumps(data))
+        if data and isinstance(data, dict):
+            self.data.update(data)
+        elif data and isinstance(data, list):
+            self.data.update(dict([(str(n[0]), n[1])
+                                   for n in enumerate(data)]))
+
     def select(self, query):
         if isinstance(query, list):
-            query = str(self.separator_char).join(query)
+            query = str(self.chars['separator']).join(query)
         data = dpath.util.search(self.data, query,
-                                 separator=self.separator_char)
+                                 separator=self.chars['separator'])
         return Dfilter(data)
 
     def iselect(self, query):
         return dpath.util.search(self.data, query, yielded=True)
 
     def fields(self, fields):
+        """Return only the selected fields. Preserving list order.
+
+        eg.: {'a':1, 'b': {'c': ['1', {'d': '3'}, 2]}}
+        fields = 'a'
+        >> {'a': 1}
+        fields = ['a', 'b']
+        >> {'a':1, 'b': {'c': ['1', {'d': '3'}, 2]}}
+        fields = ['b.c']
+        >> {'b': {'c':  ['1', {'d': '3'}, 2]}}
+        fields = ['b.c.1.d']  # Not the convertsion of list to dict.
+        >> {'b': {'c': {1: {'d': '3'}}}}
+
+        :return: Dfilter object.
+
+        """
         if isinstance(fields, str):
             if ',' in fields:
                 fields = [i.strip() for i in fields.split(",")]
@@ -50,28 +160,6 @@ class Dfilter(object):
         return Dfilter(dict([(k, self.data[k])
                              for k in self.data
                              if k in fields]))
-
-    def flatten(self, depth=1):
-        return Dfilter(self._flatten(self.data, depth))
-
-    def _flatten(self, indata, depth=1):
-        data = {}
-        for key1 in indata:
-            if isinstance(self.data[key1], dict):
-                for key2 in indata[key1]:
-                    key_name = "{0}{1}{2}".format(key1, self.separator_char, key2)
-                    data[key_name] = indata[key1][key2]
-            else:
-                data[key1] = indata[key1]
-        return data
-
-    def fold(self):
-        """A one dimentional Dictionary.
-        All the values are keys with each a list that contains the path.
-        :return: Dfilter Object.
-        """
-        #TODO(Martin): Make this multidimentional.
-        return Dfilter(dict([(str(self.data[k], [k])) for k in self.data]))
 
     def _filter_func(self, name):
         name = name.strip('$')
@@ -91,13 +179,43 @@ class Dfilter(object):
             # Hope nobody ever gets here.
             return lambda a, b: False
 
+    def _Ifetch(self, data, path):
+        #return dpath.util.search(data, path, yielded=True,
+        #                         separator=self.chars['separator'])
+        return self.spot(path, data=data, separator=self.chars['separator'])
+
     def _evaluate(self, data, path, oper, comp):
         print 'D', data, path, oper, comp
-        for item in dpath.util.search(data, path, yielded=True):
+        for item in self._Ifetch(data, path):
             print "I", item
             if self._filter_func(oper)(item[1], comp):
                 return True
         return False
+
+    def fetch(self, query, default=None):
+        """Smarter get.
+
+        eg.: {'a': 1, 'b': {'c': ['1', {'d': '3'}, 2]}}
+        query = 'a'
+        >> 1
+        query = 'b.c'
+        >> ['1', {'d': '3'}, 2]
+        query = 'b.c.*.d'
+        >> 3
+
+        """
+        #return dpath.util.search(self.data, query,
+        #                         separator=self.chars['separator'])
+        from_spot = self.spot(query)
+        if not from_spot:
+            return default
+        items = list([i[1] for i in self.spot(query)])
+        if len(items) == 0:
+            return default
+        elif len(items) == 1:
+            return items[0]
+        else:
+            return list(items)
 
     def find(self, query):
         """Query is a filter dict like in mongodb."""
@@ -180,8 +298,67 @@ class Dfilter(object):
                                     for k in sorted(self.data)]))
 
     def __getattr__(self, name):
-        if hasattr(self.data, name):
+        # Being a bit more restrictive at the moment.
+        # Only support reading from internal DB.
+        #if hasattr(self.data, name):
+        if name in ['get', 'keys']:
             return getattr(self.data, name)
+
+    def _unpack_step(self, step, obj):
+        step = str(step)
+        cwildcard = '*'
+        clistopen = '['
+        clistclose = ']'
+        clistseparator = ','
+        print step, type(obj), obj
+        if not (isinstance(obj, list) or isinstance(obj, dict)):
+            return []
+        if step == cwildcard:
+            if isinstance(obj, dict):
+                return dict.keys()
+            elif isinstance(obj, list):
+                return range(len(obj))
+            else:
+                return []
+        elif step.isdigit():
+            if isinstance(obj, list):
+                istep = int(step)
+                return [int(step)] if istep < len(obj) else []
+            else:
+                return [step, int(step)]
+        elif step.startswith(clistopen) and step.endswith(clistclose):
+            out = []
+            for s1 in step[1:-2].split(clistseparator):
+                for s2 in self._unpack_step(s1.strip(), obj):
+                    out.append(s2)
+            return out
+        else:
+            if isinstance(obj, dict):
+                return [step]
+            else:
+                return []
+
+    def spot(self, path, data=None, separator="."):
+        if data is None:
+            data = self.data
+        path = str(path).split(separator)
+        objs = [[[], data]]
+        for step in path:
+            new_objs = []
+            for obj in objs:
+                if not obj or len(obj) < 2:
+                    continue
+                potential_steps = self._unpack_step(step, obj[1])
+                for ps in potential_steps:
+                    if isinstance(obj[1], dict):
+                        if ps not in obj[1]:
+                            continue
+                        new_objs.append([obj[0] + [ps], obj[1][ps]])
+                    elif isinstance(obj[1], list):
+                        new_objs.append([obj[0] + [ps], obj[1][ps]])
+            objs = new_objs
+        for obj in objs:
+            yield obj
 
 ### Sugestions:
 # Unwind: Dict with lists, become lists with dicts.
