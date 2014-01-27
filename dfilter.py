@@ -3,7 +3,6 @@
 import json
 import operator
 from collections import OrderedDict
-import dpath.util
 
 
 class Dfilter(object):
@@ -75,7 +74,8 @@ class Dfilter(object):
         """Flatten data to a 1-d dictionary."""
         out_data = OrderedDict()
         for path, value in self._iflatten(self.data):
-            out_data[self.chars['separator'].join([str(p) for p in path])] = value
+            out_data[self.chars['separator'
+                                ].join([str(p) for p in path])] = value
         return Dfilter(out_data)
 
     def fold(self, as_str=False):
@@ -125,16 +125,6 @@ class Dfilter(object):
             self.data.update(dict([(str(n[0]), n[1])
                                    for n in enumerate(data)]))
 
-    def select(self, query):
-        if isinstance(query, list):
-            query = str(self.chars['separator']).join(query)
-        data = dpath.util.search(self.data, query,
-                                 separator=self.chars['separator'])
-        return Dfilter(data)
-
-    def iselect(self, query):
-        return dpath.util.search(self.data, query, yielded=True)
-
     def fields(self, fields):
         """Return only the selected fields. Preserving list order.
 
@@ -151,15 +141,19 @@ class Dfilter(object):
         :return: Dfilter object.
 
         """
-        if isinstance(fields, str):
-            if ',' in fields:
-                fields = [i.strip() for i in fields.split(",")]
-            else:
-                fields = [fields]
+        #if isinstance(fields, str):
+            #fields = [fields]
 
-        return Dfilter(dict([(k, self.data[k])
-                             for k in self.data
-                             if k in fields]))
+        new_data = {}
+        for item in self.spot(fields):
+            key_data = new_data
+            for key in item[0][:-1]:
+                if key not in key_data:
+                    key_data[key] = {}
+                key_data = key_data[key]
+            key_data[item[0][-1]] = item[1]
+
+        return Dfilter(new_data)
 
     def _filter_func(self, name):
         name = name.strip('$')
@@ -370,7 +364,6 @@ class Dfilter(object):
 if __name__ == "__main__":
     df = Dfilter(separator='#')
     df.read_json("tests/world_bank_countries.json")
-    print df.select('*#name').flatten().uniqe_values()
     print df
     print df.count()
 

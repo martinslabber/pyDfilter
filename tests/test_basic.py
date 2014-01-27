@@ -37,9 +37,16 @@ class TestFunctional(object):
         assert friend == 'Dontknow', "Check that correct item is given back. Got {}".format(friend)
 
     def test_flattend(self):
-        pass
         items = self.df.flatten()
         assert items.get('qux.name') == 'qux', "Check that data was flattened"
+
+    def test_fields(self):
+        items = self.df.fields('qux.name')
+        qux = items.get('qux')
+        assert items.get('qux'), "Check that the data is returned"
+        assert qux == {'name': 'qux'}, \
+            "Check that the data is returned {}".format(qux)
+        assert items.get('qux').get('age') is None, "Check that age is not there"
 
 #TestDataSample1
 tds1 = {"menu": {"header": "SVG Viewer",
