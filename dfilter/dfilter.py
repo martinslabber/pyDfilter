@@ -2,7 +2,11 @@
 
 import json
 import operator
-from collections import OrderedDict
+try:
+    from collections import OrderedDict as odict
+except ImportError:
+    # Python 2.6 has no ordered dict
+    odict = dict
 
 
 class Dfilter(object):
@@ -15,7 +19,7 @@ class Dfilter(object):
                       'liststart': '[',
                       'listend': ']',
                       'listsplit': ','}
-        self.data = OrderedDict()
+        self.data = odict()
         self.config(**kwargs)
         self._store(data)
 
@@ -72,7 +76,7 @@ class Dfilter(object):
 
     def flatten(self):
         """Flatten data to a 1-d dictionary."""
-        out_data = OrderedDict()
+        out_data = odict()
         for path, value in self._iflatten(self.data):
             out_data[self.chars['separator'
                                 ].join([str(p) for p in path])] = value
@@ -84,7 +88,7 @@ class Dfilter(object):
         Used to lookup values in a dictionary.
 
         """
-        out_data = OrderedDict()
+        out_data = odict()
         for path, value in self._iflatten(self.data):
             if as_str:
                 path_str = self.chars['separator'].join([str(p) for p in path])
@@ -176,7 +180,7 @@ class Dfilter(object):
     def _Ifetch(self, data, path):
         #return dpath.util.search(data, path, yielded=True,
         #                         separator=self.chars['separator'])
-        return self.spot(path, data=data, separator=self.chars['separator'])
+        return self.spot(path, data=data)
 
     def _evaluate(self, data, path, oper, comp):
         print 'D', data, path, oper, comp
@@ -288,8 +292,8 @@ class Dfilter(object):
 
     def sort(self, fields=None, func=None):
         #TODO(Martin): Order based on fields not keys.
-        return Dfilter(OrderedDict([(k, self.data[k])
-                                    for k in sorted(self.data)]))
+        return Dfilter(odict([(k, self.data[k])
+                              for k in sorted(self.data)]))
 
     def __getattr__(self, name):
         # Being a bit more restrictive at the moment.
@@ -309,7 +313,7 @@ class Dfilter(object):
             return []
         if step == cwildcard:
             if isinstance(obj, dict):
-                return dict.keys()
+                return obj.keys()
             elif isinstance(obj, list):
                 return range(len(obj))
             else:
@@ -327,14 +331,15 @@ class Dfilter(object):
                     out.append(s2)
             return out
         else:
-            if isinstance(obj, dict):
+            if isinstance(obj, dict) and step in obj:
                 return [step]
             else:
                 return []
 
-    def spot(self, path, data=None, separator="."):
+    def spot(self, path, data=None):
         if data is None:
             data = self.data
+        separator = self.chars['separator']
         path = str(path).split(separator)
         objs = [[[], data]]
         for step in path:

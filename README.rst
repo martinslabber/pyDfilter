@@ -1,5 +1,5 @@
-pyDfilter
-===========
+Dfilter
+=======
 
 Query interface for python dictionaries.
 

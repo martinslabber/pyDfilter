@@ -48,6 +48,16 @@ class TestFunctional(object):
             "Check that the data is returned {}".format(qux)
         assert items.get('qux').get('age') is None, "Check that age is not there"
 
+    def test_spot_unpack(self):
+        test_dict = {'a': 1, 'b': 2}
+        path = self.df._unpack_step('*', test_dict)
+        assert path == test_dict.keys(), "Check that all keys are in the result"
+        path = self.df._unpack_step('a', test_dict)
+        assert path == ['a'], "Check that a is returned."
+        path = self.df._unpack_step('x', test_dict)
+        assert not path and isinstance(path, list), "Make sure we get an empty list."
+
+
 #TestDataSample1
 tds1 = {"menu": {"header": "SVG Viewer",
                  "items": [{"id": "Open"},
