@@ -326,10 +326,10 @@ class Dfilter(object):
                 return [step, int(step)]
         elif step.startswith(clistopen) and step.endswith(clistclose):
             out = []
-            for s1 in step[1:-2].split(clistseparator):
+            for s1 in step[1:-1].split(clistseparator):
                 for s2 in self._unpack_step(s1.strip(), obj):
                     out.append(s2)
-            return out
+            return list(set(out))
         else:
             if isinstance(obj, dict) and step in obj:
                 return [step]

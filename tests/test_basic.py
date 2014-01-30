@@ -1,7 +1,6 @@
 
-
-import os
 from dfilter import Dfilter
+
 
 class TestFunctional(object):
 
@@ -12,7 +11,7 @@ class TestFunctional(object):
         data['qux'] = {'name': 'qux', 'friend': ['bar'], 'age': 40}
         self.df = Dfilter(data)
 
-    def test_filter(self):
+    def test_find(self):
         query = {'name': 'foo'}
         items = self.df.find(query)
         print items
@@ -56,6 +55,21 @@ class TestFunctional(object):
         assert path == ['a'], "Check that a is returned."
         path = self.df._unpack_step('x', test_dict)
         assert not path and isinstance(path, list), "Make sure we get an empty list."
+        path = self.df._unpack_step('*', list('abcdefghji'))
+        assert path == range(10), ''
+        path = self.df._unpack_step('3', list('abcdefghji'))
+        assert path == [3], ''
+        path = self.df._unpack_step(3, list('abcdefghji'))
+        assert path == [3], ''
+        path = self.df._unpack_step('[3,4]', list('abcdefghji'))
+        assert path == [3, 4], ''
+        path = self.df._unpack_step('[3, 4]', list('abcdefghji'))
+        assert path == [3, 4], ''
+        path = self.df._unpack_step('[ 3 ,  4 , 5  ]', list('abcdefghji'))
+        assert path == [3, 4, 5], ''
+        path = self.df._unpack_step('[*, 4]', list('abcdefghji'))
+        assert path == range(10), '{0}'.format(path)
+
 
 
 #TestDataSample1
