@@ -12,22 +12,27 @@ class TestFunctional(object):
         self.df = Dfilter(data)
 
     def test_find(self):
-        query = {'name': 'foo'}
+        query = {'*.name': 'foo'}
         items = self.df.find(query)
         print items
         assert 'foo' in items.keys(), 'Check that foo is returned'
-        query = {'name': {'$in': ['foo', 'bar']}}
+        query = {'*.name': {'$in': ['foo', 'bar']}}
         items = self.df.find(query)
         assert 'foo' in items.keys(), 'Check that foo is returned'
         assert 'bar' in items.keys(), 'Check that bar is returned'
-        query = {'name': {'$contains': 'oo'}}
+        query = {'*.name': {'$contains': 'oo'}}
         items = self.df.find(query)
         assert 'foo' in items.keys(), 'Check that foo is returned'
-        query = {'age': {'$lt': 50}}
+        query = {'*.age': {'$lt': 50}}
         items = self.df.find(query)
         assert 'foo' in items.keys(), 'Check that foo is returned'
         assert 'qux' in items.keys(), 'Check that qux is returned'
         assert 'bar' not in items.keys(), 'Check that bar is not returned'
+        query = {'bar.age': {'$gt': 5}}
+        items = self.df.find(query)
+        assert 'foo' not in items.keys(), 'Check that foo is returned'
+        assert 'qux' not in items.keys(), 'Check that qux is returned'
+        assert 'bar' in items.keys(), 'Check that bar is not returned'
 
     def test_fetch(self):
         friend = self.df.fetch('foo.friend.1')
@@ -45,6 +50,14 @@ class TestFunctional(object):
         assert items.get('qux'), "Check that the data is returned"
         assert qux == {'name': 'qux'}, \
             "Check that the data is returned {}".format(qux)
+        assert items.get('qux').get('age') is None, "Check that age is not there"
+        items = self.df.fields('*.name')
+        assert items.get('qux'), "Check that the data is returned"
+        assert items.get('bar'), "Check that the data is returned"
+        assert items.get('qux').get('age') is None, "Check that age is not there"
+        items = self.df.fields(['qux.name', 'bar.name'])
+        assert items.get('qux'), "Check that the data is returned"
+        assert items.get('bar'), "Check that the data is returned"
         assert items.get('qux').get('age') is None, "Check that age is not there"
 
     def test_spot_unpack(self):

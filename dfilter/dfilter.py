@@ -8,6 +8,8 @@ except ImportError:
     # Python 2.6 has no ordered dict
     odict = dict
 
+odict = dict
+
 
 class Dfilter(object):
 
@@ -145,17 +147,18 @@ class Dfilter(object):
         :return: Dfilter object.
 
         """
-        #if isinstance(fields, str):
-            #fields = [fields]
+        if isinstance(fields, str):
+            fields = [fields]
 
         new_data = {}
-        for item in self.spot(fields):
-            key_data = new_data
-            for key in item[0][:-1]:
-                if key not in key_data:
-                    key_data[key] = {}
-                key_data = key_data[key]
-            key_data[item[0][-1]] = item[1]
+        for field in fields:
+            for item in self.spot(field):
+                key_data = new_data
+                for key in item[0][:-1]:
+                    if key not in key_data:
+                        key_data[key] = {}
+                    key_data = key_data[key]
+                key_data[item[0][-1]] = item[1]
 
         return Dfilter(new_data)
 
@@ -183,9 +186,7 @@ class Dfilter(object):
         return self.spot(path, data=data)
 
     def _evaluate(self, data, path, oper, comp):
-        print 'D', data, path, oper, comp
         for item in self._Ifetch(data, path):
-            print "I", item
             if self._filter_func(oper)(item[1], comp):
                 return True
         return False
@@ -237,10 +238,11 @@ class Dfilter(object):
         print(tests)
         selected_items = []
         for item in self.data:
-            if all([self._evaluate(self.data[item], test[0], test[1], test[2])
+            if all([self._evaluate({item: self.data[item]},
+                                   test[0], test[1], test[2])
                     for test in tests]):
                 selected_items.append(item)
-        return Dfilter(dict([(k, self.data[k]) for k in selected_items]))
+        return Dfilter(odict([(k, self.data[k]) for k in selected_items]))
 
     def count(self):
         count = 0
@@ -249,7 +251,7 @@ class Dfilter(object):
         return count
 
     def __repr__(self):
-        return self.data
+        return self.data.__repr__()
 
     def __str__(self):
         return json.dumps(self.data, indent=4)
@@ -308,7 +310,6 @@ class Dfilter(object):
         clistopen = '['
         clistclose = ']'
         clistseparator = ','
-        print step, type(obj), obj
         if not (isinstance(obj, list) or isinstance(obj, dict)):
             return []
         if step == cwildcard:

@@ -38,3 +38,24 @@ A more practical example: ::
         'Ric': {'age': 25},
         'Eve': {'age': 51}}
 
+Find
+----
+
+Example ::
+
+    people = {'Jim': {'number': 13, 'age': 34},
+              'Sam': {'number': 15, 'age': 45},
+              'Tim': {'number': 18, 'age': 42},
+              'Ric': {'number': 25, 'age': 25},
+              'Eve': {'number': 32, 'age': 51}}
+
+    find({'*.number': 13})
+    >> {'Jim': {'number': 13, 'age': 34}}
+
+    find({'*.number': {'$lt': 15}})
+    >> {'Jim': {'number': 13, 'age': 34}}
+
+    find({'*.number': {'$lt': 16}})
+    >> {'Jim': {'number': 13, 'age': 34},
+        'Sam': {'number': 15, 'age': 45}}
+
