@@ -13,23 +13,23 @@ class TestFunctional(object):
 
     def test_find(self):
         query = {'*.name': 'foo'}
-        items = self.df.find(query)
+        items = self.df.filter(query)
         print items
         assert 'foo' in items.keys(), 'Check that foo is returned'
         query = {'*.name': {'$in': ['foo', 'bar']}}
-        items = self.df.find(query)
+        items = self.df.filter(query)
         assert 'foo' in items.keys(), 'Check that foo is returned'
         assert 'bar' in items.keys(), 'Check that bar is returned'
         query = {'*.name': {'$contains': 'oo'}}
-        items = self.df.find(query)
+        items = self.df.filter(query)
         assert 'foo' in items.keys(), 'Check that foo is returned'
         query = {'*.age': {'$lt': 50}}
-        items = self.df.find(query)
+        items = self.df.filter(query)
         assert 'foo' in items.keys(), 'Check that foo is returned'
         assert 'qux' in items.keys(), 'Check that qux is returned'
         assert 'bar' not in items.keys(), 'Check that bar is not returned'
         query = {'bar.age': {'$gt': 5}}
-        items = self.df.find(query)
+        items = self.df.filter(query)
         assert 'foo' not in items.keys(), 'Check that foo is returned'
         assert 'qux' not in items.keys(), 'Check that qux is returned'
         assert 'bar' in items.keys(), 'Check that bar is not returned'
@@ -39,6 +39,11 @@ class TestFunctional(object):
         assert friend == 'qux', "Check that correct item is given back. Got {}".format(friend)
         friend = self.df.fetch('foo.friend.10', default='Dontknow')
         assert friend == 'Dontknow', "Check that correct item is given back. Got {}".format(friend)
+        dd = {'one': {'two': 'Yes'}}
+        assert Dfilter(dd).fetch('one').fetch('two') == Dfilter(dd).fetch('one.two')
+        assert Dfilter(dd).fetch('*').fetch('two') == Dfilter(dd).fetch('one.two')
+        assert Dfilter(dd).fetch('*').fetch('two') == Dfilter(dd).fetch('*.two')
+        assert Dfilter(dd).fetch('*').fetch('two') == Dfilter(dd).fetch('*.two')
 
     def test_flattend(self):
         items = self.df.flatten()

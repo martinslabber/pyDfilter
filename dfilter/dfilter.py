@@ -28,6 +28,27 @@ class Dfilter(object):
     def __iter__(self):
         return self.data.keys()
 
+    def __getitem__(self, key):
+        return self.data[key]
+
+    def __add__(self, other):
+        #raise Value Error if we do not add.
+        if isinstance(self.data, list):
+            # Check that other is also a list.
+            return self.data + other
+        else:
+            return {'implimented': 'Not'}
+
+    def __len__(self):
+        return self.data.__len__()
+
+    def clean(self, data=None):
+        if data is None:
+            data = self.data
+
+        self.data = json.loads(json.dumps(data))
+        return self
+
     def config(self, **kwargs):
         """Configure the Dfilter object.
 
@@ -128,8 +149,9 @@ class Dfilter(object):
         if data and isinstance(data, dict):
             self.data.update(data)
         elif data and isinstance(data, list):
-            self.data.update(dict([(str(n[0]), n[1])
-                                   for n in enumerate(data)]))
+            self.data = data
+            #self.data.update(dict([(str(n[0]), n[1])
+            #                       for n in enumerate(data)]))
 
     def fields(self, fields):
         """Return only the selected fields. Preserving list order.
@@ -150,6 +172,7 @@ class Dfilter(object):
         if isinstance(fields, str):
             fields = [fields]
 
+        #if isinstance(self.data, dict):
         new_data = {}
         for field in fields:
             for item in self.spot(field):
@@ -160,7 +183,22 @@ class Dfilter(object):
                     key_data = key_data[key]
                 key_data[item[0][-1]] = item[1]
 
-        return Dfilter(new_data)
+        if isinstance(self.data, list):
+            return Dfilter([new_data[n] for n in new_data])
+        #    new_data = []
+        #    for field in fields:
+        #        for item in self.spot(field):
+        #            #key_data = new_data
+        #            #for key in item[0][:-1]:
+        #            #    if key not in key_data:
+        #            #        key_data[key] = {}
+        #            #    key_data = key_data[key]
+        #            #key_data[item[0][-1]] = item[1]
+        #            new_data.append(item[1])
+        #else:
+        #    return None
+        else:
+            return Dfilter(new_data)
 
     def _filter_func(self, name):
         name = name.strip('$')
@@ -212,11 +250,14 @@ class Dfilter(object):
         if len(items) == 0:
             return default
         elif len(items) == 1:
-            return items[0]
+            if type(items[0]) in [list, dict]:
+                return Dfilter(items[0])
+            else:
+                return items[0]
         else:
-            return list(items)
+            return Dfilter(items)
 
-    def find(self, query):
+    def filter(self, query):
         """Query is a filter dict like in mongodb."""
         tests = []
         for key in query:
@@ -235,14 +276,20 @@ class Dfilter(object):
             if key and op:
                 tests.append((key, op, val))
 
-        print(tests)
         selected_items = []
-        for item in self.data:
+        if isinstance(self.data, list):
+            sequence = range(len(self.data))
+        else:
+            sequence = self.data.keys()
+        for item in sequence:
             if all([self._evaluate({item: self.data[item]},
                                    test[0], test[1], test[2])
                     for test in tests]):
                 selected_items.append(item)
-        return Dfilter(odict([(k, self.data[k]) for k in selected_items]))
+        if isinstance(self.data, list):
+            return Dfilter([self.data[k] for k in selected_items])
+        else:
+            return Dfilter(odict([(k, self.data[k]) for k in selected_items]))
 
     def count(self):
         count = 0
@@ -372,4 +419,4 @@ if __name__ == "__main__":
     df.read_json("tests/world_bank_countries.json")
     print df
     print df.count()
-
+#
