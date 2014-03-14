@@ -2,10 +2,11 @@
 
 import json
 import operator
+
 try:
     from collections import OrderedDict as odict
 except ImportError:
-    # Python 2.6 has no ordered dict
+    # Python 2.6 has no ordered dict, we use a normal dict.
     odict = dict
 
 odict = dict
@@ -304,45 +305,221 @@ class Dfilter(object):
         return json.dumps(self.data, indent=4)
         #return str(self.data)
 
-    def values(self, sort=True):
+    def values(self, sort=False):
+        """Return a list of values.
+
+        Like dictionary get().
+
+        Params
+        ------
+            sort: Boolean
+
+        Return
+        ------
+            List of values.
+
+        >>> Dfilter([1, 2, 3]).values()
+        [1, 2, 3]
+        >>> Dfilter([1, 3, 2]).values(True)
+        [1, 2, 3]
+        >>> Dfilter({'magician': 'david', 'assistant': 'chris'}).values(True)
+        ['chris', 'david']
+
+        """
         values = list()
-        for key in self.data:
-            values.append(self.data[key])
+        if isinstance(self.data, dict):
+            values = self.data.values()
+        else:
+            values = self.data
+
         if sort:
             return sorted(values)
         else:
             return values
 
-    def limit(self, number=100):
-        return self.slice(0, number)
+    def unique_values(self, sort=True):
+        """Return a list of unique values.
 
-    def first(self, number=1):
-        return self.slice(0, number)
+        Like dictionary get() but only unique values are returned.
 
-    def last(self, number=1):
-        return self.slice(-1, -1 - abs(number))
+        Params
+        ------
+            sort: Boolean, default to True.
 
-    def slice(self, start=0, end=-1):
-        start, end = int(start), int(end)
-        if start > end:
-            raise ValueError("start should not be bigger than end")
+        Return
+        ------
+            List of values.
 
-        items = self.data.keys()[start:end]
-        return Dfilter([(k, self.data) for k in items])
+        >>> Dfilter([1, 3, 2, 3]).unique_values()
+        [1, 2, 3]
+        >>> Dfilter([2, 1, 3, 2]).unique_values(True)
+        [1, 2, 3]
+        >>> Dfilter({'m': 'dan', 'a': 'phil', 'o': 'dan'}).unique_values(True)
+        ['dan', 'phil']
 
-    def uniqe_values(self, sort=True):
-        values = set()
-        for key in self.data:
-            values.add(self.data[key])
+        """
+        values = set(self.values())
         if sort:
             return sorted(list(values))
         else:
             return list(values)
 
+    def limit(self, number=100):
+        """Return the up to the number of items.
+
+        >>> Dfilter(range(9)).limit(5)
+        [0, 1, 2, 3, 4]
+
+        """
+        return self.slice(0, number)
+
+    def first(self, number=1):
+        """Return the first item or up to the number of items.
+
+        Alias for limit but default is to return 1 item.
+
+        >>> Dfilter(range(9)).first()
+        [0]
+
+        """
+        return self.slice(0, number)
+
+    def last(self, number=1):
+        """Return the last item or up to the number of items from the back.
+
+        >>> Dfilter(range(9)).last()
+        [8]
+        >>> Dfilter(range(9)).last(2)
+        [7, 8]
+
+        """
+        return self.slice(start=-1 * number, end=0)
+
+    def slice(self, start=None, end=None):
+        """
+
+        TODO: Support slicing dictionaries on keys.
+
+        Params
+        ------
+            start: integer
+
+            end: integer
+
+        >>> Dfilter([1, 2, 3]).slice(0, 1)
+        [1]
+
+        """
+        if start is None:
+            start = 0
+        start = int(start)
+        if end is None:
+            end = 0
+        end = int(end)
+
+        if start > end:
+            pass
+            #raise ValueError("start can not be bigger than end")
+
+        if isinstance(self.data, list):
+            if end:
+                items = self.data[start:end]
+            else:
+                items = self.data[start:]
+        else:
+            if end == 0:
+                items = dict(self.data.items()[start])
+            else:
+                items = dict(self.data.items()[start:end])
+
+        return Dfilter(items)
+
     def sort(self, fields=None, func=None):
         #TODO(Martin): Order based on fields not keys.
         return Dfilter(odict([(k, self.data[k])
                               for k in sorted(self.data)]))
+
+    def get(self, key, default=None):
+        """Return the value for the given key or the default value.
+
+        Like dictionary get().
+
+        Params
+        ------
+            key:
+                Return the value represented by this key.
+            default:
+                If key is not found return this as the value.
+
+        Return
+        ------
+            Value
+
+        >>> Dfilter(['d', 'a', 'y']).get(1)
+        'a'
+        >>> Dfilter([1, 2, 3]).get(10, 'Out of stock!')
+        'Out of stock!'
+        >>> Dfilter({'name': 'Jim', 'age': 4}).get('name', 'Bob')
+        'Jim'
+        >>> Dfilter({'name': 'Jim', 'age': 4}).get(1)
+
+        >>> Dfilter({'name': 'Jim'}).get('age', 0)
+        0
+
+        """
+        if isinstance(self.data, dict):
+            return self.data.get(key, default)
+        else:
+            try:
+                return self.data[key]
+            except KeyError:
+                return default
+            except IndexError:
+                return default
+
+    def keys(self):
+        """List of keys. df.keys() -> list of df's keys.
+
+        Like dictionary key().
+
+        Return
+        ------
+            List of Keys
+
+        >>> Dfilter(['d', 'a', 'y']).keys()
+        [0, 1, 2]
+        >>> Dfilter([]).keys()
+        []
+        >>> sorted(Dfilter({'name': 'Jim', 'age': 4}).keys())
+        ['age', 'name']
+        >>> Dfilter().keys()
+        []
+
+        """
+        if isinstance(self.data, dict):
+            return self.data.keys()
+        else:
+            return range(len(self.data))
+
+    def items(self):
+        """Return the (key, value) pairs.
+
+        Like dictionary items().
+
+        Return
+        ------
+            Iterator of (key, value) pairs as 2-tuples
+
+        >>> list(Dfilter(['d', 'a', 'y']).items())
+        [(0, 'd'), (1, 'a'), (2, 'y')]
+        >>> list(Dfilter({'day': 2, 'month': 6}).items())
+        [('day', 2), ('month', 6)]
+
+        """
+        if isinstance(self.data, dict):
+            return self.data.items()
+        else:
+            return enumerate(self.data)
 
     def __getattr__(self, name):
         # Being a bit more restrictive at the moment.
